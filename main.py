@@ -2,7 +2,7 @@ import telebot
 import os
 
 # 🔐 Вставь сюда токен своего Telegram-бота от BotFather
-BOT_TOKEN = os.getenv("8342180932:AAEvYHqgjD00bcrBAh-ouQFfKdaUTwFul8g") or "ТВОЙ_ТОКЕН_БОТА"
+BOT_TOKEN = os.getenv("BOT_TOKEN") or "ТВОЙ_ТОКЕН_БОТА"
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
