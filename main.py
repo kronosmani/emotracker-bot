@@ -6,7 +6,7 @@ from flask import Flask, request
 import telebot
 from threading import Thread
 
-# 🔐 Переменные окружения
+# 🔐 Получаем переменные окружения
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 LIQPAY_PUBLIC_KEY = os.getenv("LIQPAY_PUBLIC_KEY")
 LIQPAY_PRIVATE_KEY = os.getenv("LIQPAY_PRIVATE_KEY")
@@ -15,17 +15,18 @@ bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 paid_users = set()
 
-# 📦 Генерация ссылки на оплату
+# 📦 Генерация ссылки на оплату через LiqPay
 def create_payment_link(telegram_id):
     data = {
         "version": "3",
         "action": "pay",
-        "amount": "1",
+        "amount": "1",  # тестовая сумма
         "currency": "UAH",
         "description": "Тестова оплата Emotracker",
         "order_id": str(telegram_id),
         "sandbox": 1,
-        "server_url": "https://emotracker-bot.onrender.com/webhook"
+        "server_url": "https://emotracker-bot.onrender.com/webhook",
+        "public_key": LIQPAY_PUBLIC_KEY
     }
 
     json_data = json.dumps(data)
@@ -41,7 +42,7 @@ def send_welcome(message):
     bot.send_message(message.chat.id,
         "👋 Привет! Это эмоциональный трекер.\nНажмите /buy, чтобы оплатить и получить файл.")
 
-# 💳 Команда /buy
+# 💳 Команда /buy — отправка ссылки на оплату
 @bot.message_handler(commands=['buy'])
 def send_payment_link(message):
     telegram_id = message.chat.id
@@ -49,7 +50,7 @@ def send_payment_link(message):
     bot.send_message(telegram_id,
         f"💳 Оплата через LiqPay:\n{payment_url}\n\nПосле оплаты бот автоматически отправит вам файл.")
 
-# 📁 Команда /getfile
+# 📁 Команда /getfile — ручная проверка
 @bot.message_handler(commands=['getfile'])
 def send_file(message):
     user_id = message.chat.id
@@ -63,7 +64,7 @@ def send_file(message):
         bot.send_message(user_id,
             "💡 Похоже, вы ещё не оплатили. Нажмите /buy, чтобы оплатить.")
 
-# 🔁 Webhook от LiqPay
+# 🔁 Обработка Webhook от LiqPay
 @app.route('/webhook', methods=['POST'])
 def liqpay_webhook():
     data = request.json
@@ -87,7 +88,7 @@ def liqpay_webhook():
 def index():
     return "Бот работает", 200
 
-# 🚀 Запуск
+# 🚀 Запуск Telegram-бота и Flask-сервера
 if __name__ == '__main__':
     Thread(target=lambda: bot.polling(non_stop=True)).start()
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
