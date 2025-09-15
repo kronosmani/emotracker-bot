@@ -19,7 +19,7 @@ def send_payment_link(message):
 @bot.message_handler(commands=['getfile'])
 def send_file(message):
     try:
-        with open("emotracker_prompt.pdf", "rb") as f:
+        with open("ilovepdf_merged.pdf", "rb") as f:
             bot.send_document(message.chat.id, f)
     except Exception as e:
         bot.send_message(message.chat.id, f"⚠️ Ошибка при отправке файла: {e}")
