@@ -1,28 +1,26 @@
-import telebot
 import os
 import json
 import base64
 import hashlib
 from flask import Flask, request
+import telebot
 from threading import Thread
 
-# 🔐 Получаем токен и ключи из переменных окружения
+# 🔐 Переменные окружения
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 LIQPAY_PUBLIC_KEY = os.getenv("LIQPAY_PUBLIC_KEY")
 LIQPAY_PRIVATE_KEY = os.getenv("LIQPAY_PRIVATE_KEY")
 
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
-
-# 🧠 Хранилище оплативших пользователей
 paid_users = set()
 
-# 📦 Генерация ссылки на оплату через LiqPay
+# 📦 Генерация ссылки на оплату
 def create_payment_link(telegram_id):
     data = {
         "version": "3",
         "action": "pay",
-        "amount": "1",  # тестовая сумма
+        "amount": "1",
         "currency": "UAH",
         "description": "Тестова оплата Emotracker",
         "order_id": str(telegram_id),
@@ -32,9 +30,8 @@ def create_payment_link(telegram_id):
 
     json_data = json.dumps(data)
     encoded_data = base64.b64encode(json_data.encode()).decode()
-    signature = base64.b64encode(
-        hashlib.sha1((LIQPAY_PRIVATE_KEY + encoded_data + LIQPAY_PRIVATE_KEY).encode()).digest()
-    ).decode()
+    sign_string = LIQPAY_PRIVATE_KEY + encoded_data + LIQPAY_PRIVATE_KEY
+    signature = base64.b64encode(hashlib.sha1(sign_string.encode()).digest()).decode()
 
     return f"https://www.liqpay.ua/api/3/checkout?data={encoded_data}&signature={signature}"
 
@@ -42,9 +39,9 @@ def create_payment_link(telegram_id):
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     bot.send_message(message.chat.id,
-        "👋 Привет! Это эмоциональный трекер для родителей.\n\nЧтобы получить файл, сначала оплатите по ссылке: /buy")
+        "👋 Привет! Это эмоциональный трекер.\nНажмите /buy, чтобы оплатить и получить файл.")
 
-# 💳 Команда /buy — отправка ссылки на оплату
+# 💳 Команда /buy
 @bot.message_handler(commands=['buy'])
 def send_payment_link(message):
     telegram_id = message.chat.id
@@ -52,7 +49,7 @@ def send_payment_link(message):
     bot.send_message(telegram_id,
         f"💳 Оплата через LiqPay:\n{payment_url}\n\nПосле оплаты бот автоматически отправит вам файл.")
 
-# 📁 Команда /getfile — выдача файла после оплаты
+# 📁 Команда /getfile
 @bot.message_handler(commands=['getfile'])
 def send_file(message):
     user_id = message.chat.id
@@ -64,9 +61,9 @@ def send_file(message):
             bot.send_message(user_id, f"⚠️ Ошибка при отправке файла: {e}")
     else:
         bot.send_message(user_id,
-            "💡 Похоже, вы ещё не оплатили.\nПожалуйста, перейдите по ссылке /buy и завершите оплату.\n\nЕсли вы уже оплатили, просто нажмите /buy ещё раз — бот всё проверит.")
+            "💡 Похоже, вы ещё не оплатили. Нажмите /buy, чтобы оплатить.")
 
-# 🔁 Обработка Webhook от LiqPay
+# 🔁 Webhook от LiqPay
 @app.route('/webhook', methods=['POST'])
 def liqpay_webhook():
     data = request.json
@@ -90,7 +87,7 @@ def liqpay_webhook():
 def index():
     return "Бот работает", 200
 
-# 🚀 Запуск Telegram-бота и Flask-сервера
+# 🚀 Запуск
 if __name__ == '__main__':
     Thread(target=lambda: bot.polling(non_stop=True)).start()
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
