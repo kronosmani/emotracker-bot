@@ -4,9 +4,8 @@ import base64
 import hashlib
 from flask import Flask, request
 import telebot
-from threading import Thread
 
-# 🔐 Получаем переменные окружения
+# 🔐 Переменные окружения
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 LIQPAY_PUBLIC_KEY = os.getenv("LIQPAY_PUBLIC_KEY")
 LIQPAY_PRIVATE_KEY = os.getenv("LIQPAY_PRIVATE_KEY")
@@ -15,17 +14,17 @@ bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 paid_users = set()
 
-# 📦 Генерация ссылки на оплату через LiqPay
+# 📦 Генерация ссылки на оплату
 def create_payment_link(telegram_id):
     data = {
         "version": "3",
         "action": "pay",
-        "amount": "1",  # тестовая сумма
+        "amount": "1",
         "currency": "UAH",
         "description": "Тестова оплата Emotracker",
         "order_id": str(telegram_id),
         "sandbox": 1,
-        "server_url": "https://emotracker-bot.onrender.com/webhook",
+        "server_url": "https://emotracker-bot.onrender.com/liqpay",
         "public_key": LIQPAY_PUBLIC_KEY
     }
 
@@ -40,9 +39,9 @@ def create_payment_link(telegram_id):
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     bot.send_message(message.chat.id,
-        "👋 Привет! Это эмоциональный трекер.\nНажмите /buy, чтобы оплатить и получить файл.")
+        "👋 Привет! Это Emotracker.\nНажмите /buy, чтобы оплатить и получить файл.")
 
-# 💳 Команда /buy — отправка ссылки на оплату
+# 💳 Команда /buy
 @bot.message_handler(commands=['buy'])
 def send_payment_link(message):
     telegram_id = message.chat.id
@@ -50,7 +49,7 @@ def send_payment_link(message):
     bot.send_message(telegram_id,
         f"💳 Оплата через LiqPay:\n{payment_url}\n\nПосле оплаты бот автоматически отправит вам файл.")
 
-# 📁 Команда /getfile — ручная проверка
+# 📁 Команда /getfile
 @bot.message_handler(commands=['getfile'])
 def send_file(message):
     user_id = message.chat.id
@@ -64,11 +63,11 @@ def send_file(message):
         bot.send_message(user_id,
             "💡 Похоже, вы ещё не оплатили. Нажмите /buy, чтобы оплатить.")
 
-# 🔁 Обработка Webhook от LiqPay
-@app.route('/webhook', methods=['POST'])
+# 🔁 Webhook от LiqPay
+@app.route('/liqpay', methods=['POST'])
 def liqpay_webhook():
     data = request.json
-    print("Webhook получен:", data)
+    print("Webhook от LiqPay:", data)
 
     if data.get("status") == "success":
         telegram_id = int(data.get("order_id"))
@@ -83,12 +82,20 @@ def liqpay_webhook():
 
     return "OK", 200
 
+# 📥 Webhook от Telegram
+@app.route('/', methods=['POST'])
+def telegram_webhook():
+    update = telebot.types.Update.de_json(request.stream.read().decode("utf-8"))
+    bot.process_new_updates([update])
+    return "OK", 200
+
 # 🌐 Проверка сервера
-@app.route('/')
+@app.route('/', methods=['GET'])
 def index():
     return "Бот работает", 200
 
-# 🚀 Запуск Telegram-бота и Flask-сервера
+# 🚀 Установка webhook при запуске
 if __name__ == '__main__':
-    Thread(target=lambda: bot.polling(non_stop=True)).start()
+    bot.remove_webhook()
+    bot.set_webhook(url="https://emotracker-bot.onrender.com")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
